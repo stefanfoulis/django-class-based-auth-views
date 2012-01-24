@@ -1,66 +1,86 @@
-#-*- coding: utf-8 -*-
 import urlparse
+
+from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.utils.functional import lazy
-from django.contrib.auth import REDIRECT_FIELD_NAME, login
-from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, SetPasswordForm
+from django.contrib.sites.models import get_current_site
 from django.http import HttpResponseRedirect
-from django.contrib.auth.models import User
+
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
-from django.utils.http import base36_to_int
 from django.contrib.auth.tokens import default_token_generator
-from django.views.generic.edit import FormView
+from django.utils.http import base36_to_int
+from django.contrib.auth import REDIRECT_FIELD_NAME, login, logout
+
+from django.views.generic import FormView, TemplateView
 from django.views.generic.base import TemplateResponseMixin
-from django.conf import settings
+
+from django.contrib.auth.forms import PasswordResetForm, SetPasswordForm, AuthenticationForm
+from django.contrib.auth.models import User
 
 reverse_lazy = lazy(reverse, str)
 
+"""
+Class based alternatives for the generic Django auth views. These should be easier to extend
+that the function-based generic auth views, and are in keeping with the transition to class
+based views in Django 1.3
+"""
 
-class LoginView(FormView):
+class CurrentAppMixin(TemplateResponseMixin):
     """
-    This is a class based version of django.contrib.auth.views.login.
+    Mixin to add the current_app to the context. Returns RequestContext
+    objects (assuming context isn't already a Context object)
+    """
+    def render_to_response(self, context, **response_kwargs):
+        response_kwargs['current_app'] = self.current_app
+        return super(CurrentAppMixin, self).render_to_response(context, **response_kwargs)
 
-    Usage:
-        in urls.py:
-            url(r'^login/$',
-                LoginView.as_view(
-                    form_class=MyCustomAuthFormClass,
-                    success_url='/my/custom/success/url/),
-                name="login"),
 
+class LoginView(FormView, CurrentAppMixin):
+    """
+    Class based version of django.contrib.auth.views.login
+    Note that cookies are tested for but nothing is done with the test result
     """
     form_class = AuthenticationForm
     redirect_field_name = REDIRECT_FIELD_NAME
     template_name = 'registration/login.html'
+    current_app = None
 
     @method_decorator(csrf_protect)
     @method_decorator(never_cache)
     def dispatch(self, *args, **kwargs):
         return super(LoginView, self).dispatch(*args, **kwargs)
+    
+    def get(self, request, *args, **kwargs):
+        self.set_test_cookie()
+        return super(LoginView, self).get(request, *args, **kwargs)
+    
+    def post(self, request, *args, **kwargs):
+        self.check_and_delete_test_cookie()
+        return super(LoginView, self).post(request, *args, **kwargs)
 
     def form_valid(self, form):
-        """
-        The user has provided valid credentials (this was checked in AuthenticationForm.is_valid()). So now we
-        can log him in.
-        """
         login(self.request, form.get_user())
         return HttpResponseRedirect(self.get_success_url())
+    
+    def form_invalid(self, form):
+        self.set_test_cookie()
+        return super(LoginView, self).form_invalid(form)
 
     def get_success_url(self):
-        if self.success_url:
-            redirect_to = self.success_url
-        else:
-            redirect_to = self.request.REQUEST.get(self.redirect_field_name, '')
-
+        redirect_to = self.success_url or self.request.REQUEST.get(self.redirect_field_name, '')
+        # Use default if redirect_to is empty or has a different host (security check).
         netloc = urlparse.urlparse(redirect_to)[1]
-        if not redirect_to:
-            redirect_to = settings.LOGIN_REDIRECT_URL
-        # Security check -- don't allow redirection to a different host.
-        elif netloc and netloc != self.request.get_host():
+        if not redirect_to or (netloc and netloc != self.request.get_host()):
             redirect_to = settings.LOGIN_REDIRECT_URL
         return redirect_to
+
+    def get_context_data(self, **kwargs):
+        kwargs['redirect_field_name'] = self.get_success_url()
+        kwargs['site'] = get_current_site(self.request)
+        kwargs['site_name'] = kwargs['site'].name
+        return super(LoginView, self).get_context_data(**kwargs)
 
     def set_test_cookie(self):
         self.request.session.set_test_cookie()
@@ -71,39 +91,38 @@ class LoginView(FormView):
             return True
         return False
 
+
+class LogoutView(TemplateView, CurrentAppMixin):
+    """
+    Class based version of django.contrib.auth.views.logout
+    """
+    next_page = None
+    template_name = 'registration/logged_out.html'
+    redirect_field_name = REDIRECT_FIELD_NAME
+    current_app = None
+    
     def get(self, request, *args, **kwargs):
-        """
-        Same as django.views.generic.edit.ProcessFormView.get(), but adds test cookie stuff
-        """
-        self.set_test_cookie()
-        return super(LoginView, self).get(request, *args, **kwargs)
+        logout(self.request)
+        redirect_to = request.REQUEST.get(self.redirect_field_name, '')
+        if redirect_to:
+            netloc = urlparse.urlparse(redirect_to)[1]
+            # Security check -- don't allow redirection to a different host.
+            if not (netloc and netloc != self.request.get_host()):
+                return HttpResponseRedirect(redirect_to)
+        if self.next_page:
+            return HttpResponseRedirect(self.next_page)
+        return super(LogoutView, self).get(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        kwargs['redirect_field_name'] = self.get_success_url()
+        kwargs['site'] = get_current_site(self.request)
+        kwargs['site_name'] = kwargs['site'].name
+        return super(LogoutView, self).get_context_data(**kwargs)
 
-    def post(self, request, *args, **kwargs):
-        """
-        Same as django.views.generic.edit.ProcessFormView.post(), but adds test cookie stuff
-        """
-        form_class = self.get_form_class()
-        form = self.get_form(form_class)
-        if form.is_valid():
-            self.check_and_delete_test_cookie()
-            return self.form_valid(form)
-        else:
-            self.set_test_cookie()
-            return self.form_invalid(form)
-
-class CurrentAppMixin(TemplateResponseMixin):
-    """
-    Mixin to add give the option of adding the current_app to the context. Returns RequestContext
-    objects (assuming context isn't already a Context object)
-    """
-    def render_to_response(self, context, **response_kwargs):
-        response_kwargs['current_app'] = self.current_app
-        return super(CurrentAppMixin, self).render_to_response(context, **response_kwargs)
 
 class PasswordResetView(FormView, CurrentAppMixin):
     """
-    This is a class based version of django.contrib.auth.views.password_reset.
-    The intention is to make the view easier to extend (in my case to use ajax)
+    Class based version of django.contrib.auth.views.password_reset
     """
     form_class = PasswordResetForm
     template_name = 'registration/password_reset_form.html'
@@ -113,11 +132,11 @@ class PasswordResetView(FormView, CurrentAppMixin):
     post_reset_redirect = reverse_lazy('django.contrib.auth.views.password_reset_done')
     from_email = None
     current_app = None
-
+    
     @method_decorator(csrf_protect)
     def dispatch(self, *args, **kwargs):
         return super(PasswordResetView, self).dispatch(*args, **kwargs)
-
+    
     def form_valid(self, form):
         """
         User has entered an email address of a valid user (checked by PasswordResetForm)
@@ -137,10 +156,7 @@ class PasswordResetView(FormView, CurrentAppMixin):
 
 class PasswordResetConfirmView(FormView, CurrentAppMixin):
     """
-    This is a class based version of django.contrib.auth.views.password_reset_confirm
-    View that checks the hash in a password reset link and presents a
-    form for entering a new password.
-    The intention is to make the view easier to extend (in my case to use ajax)
+    Class based version of django.contrib.auth.views.password_reset_confirm
     """
     uidb36 = None
     token = None
@@ -149,27 +165,27 @@ class PasswordResetConfirmView(FormView, CurrentAppMixin):
     form_class = SetPasswordForm
     post_reset_redirect = reverse_lazy('django.contrib.auth.views.password_reset_complete')
     current_app = None
-
+    
     @method_decorator(never_cache)
     def dispatch(self, request, *args, **kwargs):
         if not self.check_link(kwargs['uidb36'], kwargs['token']):
             self.request = request
             return self.render_to_response(self.get_context_data(form=None))
         return super(PasswordResetConfirmView, self).dispatch(request, *args, **kwargs)
-
+    
     def get_context_data(self, **kwargs):
         kwargs['validlink'] = self.validlink
         return super(PasswordResetConfirmView, self).get_context_data(**kwargs)
-
+    
     def form_valid(self, form):
         form.save()
         return HttpResponseRedirect(self.post_reset_redirect)
-
+    
     def get_form_kwargs(self):
         kwargs = super(PasswordResetConfirmView, self).get_form_kwargs()
         kwargs['user'] = self.user
         return kwargs
-
+    
     def check_link(self, uidb36, token):
         assert uidb36 is not None and token is not None # checked by URLconf
         try:
