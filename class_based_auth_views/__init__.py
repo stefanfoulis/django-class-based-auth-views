@@ -1,7 +1,7 @@
 #-*- coding: utf-8 -*-
 __version_info__ = {
     'major': 0,
-    'minor': 1,
+    'minor': 3,
     'micro': 0,
     'releaselevel': 'alpha',
     'serial': 1
