@@ -19,9 +19,21 @@ from django.contrib.sites.models import get_current_site
 reverse_lazy = lazy(reverse, str)
 
 
-class LoginView(FormView):
+class CurrentAppMixin(TemplateResponseMixin):
     """
-    This is a class based version of django.contrib.auth.views.login.
+    Mixin to add give the option of adding the current_app to the context.
+    Returns RequestContext objects (assuming context isn't already a Context
+    object)
+    """
+    def render_to_response(self, context, **response_kwargs):
+        response_kwargs['current_app'] = self.current_app
+        return super(CurrentAppMixin, self).render_to_response(context,
+                                                          **response_kwargs)
+
+
+class LoginView(FormView, CurrentAppMixin):
+    """
+    Class based version of django.contrib.auth.views.login
 
     Usage:
         in urls.py:
@@ -35,33 +47,44 @@ class LoginView(FormView):
     form_class = AuthenticationForm
     redirect_field_name = REDIRECT_FIELD_NAME
     template_name = 'registration/login.html'
+    current_app = None
 
     @method_decorator(csrf_protect)
     @method_decorator(never_cache)
     def dispatch(self, *args, **kwargs):
         return super(LoginView, self).dispatch(*args, **kwargs)
+    
+    def get(self, request, *args, **kwargs):
+        self.set_test_cookie()
+        return super(LoginView, self).get(request, *args, **kwargs)
+    
+    def post(self, request, *args, **kwargs):
+        self.check_and_delete_test_cookie()
+        return super(LoginView, self).post(request, *args, **kwargs)
 
     def form_valid(self, form):
-        """
-        The user has provided valid credentials (this was checked in AuthenticationForm.is_valid()). So now we
-        can log him in.
-        """
         login(self.request, form.get_user())
         return HttpResponseRedirect(self.get_success_url())
+    
+    def form_invalid(self, form):
+        self.set_test_cookie()
+        return super(LoginView, self).form_invalid(form)
 
     def get_success_url(self):
-        if self.success_url:
-            redirect_to = self.success_url
-        else:
-            redirect_to = self.request.REQUEST.get(self.redirect_field_name, '')
+        redirect_to = self.success_url or \
+                  self.request.REQUEST.get(self.redirect_field_name, '')
 
+    # Use default if redirect_to is empty or has a different host
+    # (security check)
         netloc = urlparse.urlparse(redirect_to)[1]
-        if not redirect_to:
-            redirect_to = settings.LOGIN_REDIRECT_URL
-        # Security check -- don't allow redirection to a different host.
-        elif netloc and netloc != self.request.get_host():
+        if not redirect_to or (netloc and netloc != self.request.get_host()):
             redirect_to = settings.LOGIN_REDIRECT_URL
         return redirect_to
+
+    def get_context_data(self, **kwargs):
+        kwargs['site'] = get_current_site(self.request)
+        kwargs['site_name'] = kwargs['site'].name
+        return super(LoginView, self).get_context_data(**kwargs)
 
     def set_test_cookie(self):
         self.request.session.set_test_cookie()
@@ -71,35 +94,6 @@ class LoginView(FormView):
             self.request.session.delete_test_cookie()
             return True
         return False
-
-    def get(self, request, *args, **kwargs):
-        """
-        Same as django.views.generic.edit.ProcessFormView.get(), but adds test cookie stuff
-        """
-        self.set_test_cookie()
-        return super(LoginView, self).get(request, *args, **kwargs)
-
-    def post(self, request, *args, **kwargs):
-        """
-        Same as django.views.generic.edit.ProcessFormView.post(), but adds test cookie stuff
-        """
-        form_class = self.get_form_class()
-        form = self.get_form(form_class)
-        if form.is_valid():
-            self.check_and_delete_test_cookie()
-            return self.form_valid(form)
-        else:
-            self.set_test_cookie()
-            return self.form_invalid(form)
-
-class CurrentAppMixin(TemplateResponseMixin):
-    """
-    Mixin to add give the option of adding the current_app to the context. Returns RequestContext
-    objects (assuming context isn't already a Context object)
-    """
-    def render_to_response(self, context, **response_kwargs):
-        response_kwargs['current_app'] = self.current_app
-        return super(CurrentAppMixin, self).render_to_response(context, **response_kwargs)
 
 
 class LogoutView(TemplateView, CurrentAppMixin):
