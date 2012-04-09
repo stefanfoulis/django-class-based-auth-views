@@ -1,4 +1,10 @@
 #-*- coding: utf-8 -*-
+"""
+Class based alternatives for the generic Django auth views. These should be
+easier to extend than the function-based generic auth views, and are in
+keeping with the transition to class based views in Django 1.3
+"""
+
 import urlparse
 from django.core.urlresolvers import reverse
 from django.utils.functional import lazy
