@@ -2,7 +2,7 @@
 import urlparse
 from django.core.urlresolvers import reverse
 from django.utils.functional import lazy
-from django.contrib.auth import REDIRECT_FIELD_NAME, login
+from django.contrib.auth import REDIRECT_FIELD_NAME, login, logout
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, SetPasswordForm
 from django.http import HttpResponseRedirect
 from django.contrib.auth.models import User
@@ -12,8 +12,9 @@ from django.views.decorators.csrf import csrf_protect
 from django.utils.http import base36_to_int
 from django.contrib.auth.tokens import default_token_generator
 from django.views.generic.edit import FormView
-from django.views.generic.base import TemplateResponseMixin
+from django.views.generic.base import TemplateResponseMixin, TemplateView
 from django.conf import settings
+from django.contrib.sites.models import get_current_site
 
 reverse_lazy = lazy(reverse, str)
 
@@ -99,6 +100,35 @@ class CurrentAppMixin(TemplateResponseMixin):
     def render_to_response(self, context, **response_kwargs):
         response_kwargs['current_app'] = self.current_app
         return super(CurrentAppMixin, self).render_to_response(context, **response_kwargs)
+
+
+class LogoutView(TemplateView, CurrentAppMixin):
+    """
+    Class based version of django.contrib.auth.views.logout
+    """
+    next_page = None
+    template_name = 'registration/logged_out.html'
+    redirect_field_name = REDIRECT_FIELD_NAME
+    current_app = None
+
+    def get(self, request, *args, **kwargs):
+        logout(self.request)
+        redirect_to = request.REQUEST.get(self.redirect_field_name, '')
+        if redirect_to:
+            netloc = urlparse.urlparse(redirect_to)[1]
+            # Security check -- don't allow redirection to a different host.
+            if not (netloc and netloc != self.request.get_host()):
+                return HttpResponseRedirect(redirect_to)
+        if self.next_page:
+            return HttpResponseRedirect(self.next_page)
+        return super(LogoutView, self).get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        kwargs['redirect_field_name'] = self.get_success_url()
+        kwargs['site'] = get_current_site(self.request)
+        kwargs['site_name'] = kwargs['site'].name
+        return super(LogoutView, self).get_context_data(**kwargs)
+
 
 class PasswordResetView(FormView, CurrentAppMixin):
     """

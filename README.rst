@@ -6,7 +6,7 @@ django-class-based-auth-views
 A reimplementation of ``django.contrib.auth.views`` as class based views. Hopefully at some point this project or
 something similar will make it into django proper.
 
-Currently only ``LoginView``, ``PasswordResetView`` and ``PasswordResetConfirmView`` are implemented. The others will follow.
+Currently only ``LoginView``, ``LogoutView``, ``PasswordResetView`` and ``PasswordResetConfirmView`` are implemented. The others will follow.
 
 Installation
 ============
