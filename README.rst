@@ -2,6 +2,11 @@
 django-class-based-auth-views
 =============================
 
+related packages
+================
+
+* https://github.com/brutasse/django-password-reset/ has class based views to reset forgotten passwords by email confirmation
+
 
 A reimplementation of ``django.contrib.auth.views`` as class based views. Hopefully at some point this project or
 something similar will make it into django proper.
