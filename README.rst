@@ -6,7 +6,11 @@ django-class-based-auth-views
 A reimplementation of ``django.contrib.auth.views`` as class based views. Hopefully at some point this project or
 something similar will make it into django proper.
 
-Currently only ``LoginView`` is implemented. The others will follow.
+Currently ``LoginView`` and ``LogoutView`` are implemented.
+
+See `django-password-reset <https://github.com/brutasse/django-password-reset>`_ for class based password management
+views.
+
 
 Installation
 ============
@@ -25,7 +29,12 @@ Instead of including ``django.contrib.auth.login`` into your ``urls.py``, just u
     from class_based_auth_views.views import LoginView
     urlpatterns = patterns('',
         url(r'^login/$', LoginView.as_view(form_class=EmailAsUsernameAuthenticationForm), name="login"),
+        url(r'^logout/$', LogoutView.as_view(), name="logout"),
     )
+
+
+Be aware that the logout view requires a ``POST`` to actually logout. So the ``registration/logout.html`` template
+should contain a form with a submit button.
 
 
 Extending LoginView Example

@@ -1,11 +1,16 @@
 #-*- coding: utf-8 -*-
 import urlparse
+from class_based_auth_views.utils import default_redirect
+from django.contrib import auth
 from django.contrib.auth import REDIRECT_FIELD_NAME, login
 from django.contrib.auth.forms import AuthenticationForm
 from django.http import HttpResponseRedirect
+from django.shortcuts import redirect
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
+from django.views.generic import View
+from django.views.generic.base import TemplateResponseMixin
 from django.views.generic.edit import FormView
 from django.conf import settings
 
@@ -82,3 +87,37 @@ class LoginView(FormView):
         else:
             self.set_test_cookie()
             return self.form_invalid(form)
+
+
+class LogoutView(TemplateResponseMixin, View):
+    template_name = "registration/logout.html"
+    redirect_field_name = "next"
+
+    def get(self, *args, **kwargs):
+        if not self.request.user.is_authenticated():
+            return redirect(self.get_redirect_url())
+        context = self.get_context_data()
+        return self.render_to_response(context)
+
+    def post(self, *args, **kwargs):
+        if self.request.user.is_authenticated():
+            auth.logout(self.request)
+        return redirect(self.get_redirect_url())
+
+    def get_context_data(self, **kwargs):
+        context = kwargs
+        redirect_field_name = self.get_redirect_field_name()
+        context.update({
+            "redirect_field_name": redirect_field_name,
+            "redirect_field_value": self.request.REQUEST.get(redirect_field_name),
+            })
+        return context
+
+    def get_redirect_field_name(self):
+        return self.redirect_field_name
+
+    def get_redirect_url(self, fallback_url=None, **kwargs):
+        if fallback_url is None:
+            fallback_url = settings.LOGIN_URL
+        kwargs.setdefault("redirect_field_name", self.get_redirect_field_name())
+        return default_redirect(self.request, fallback_url, **kwargs)
