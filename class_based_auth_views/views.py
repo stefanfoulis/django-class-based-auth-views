@@ -40,10 +40,19 @@ class LoginView(FormView):
     def form_valid(self, form):
         """
         The user has provided valid credentials (this was checked in AuthenticationForm.is_valid()). So now we
-        can log him in.
+        can check the test cookie stuff and log him in.
         """
+        self.check_and_delete_test_cookie()
         login(self.request, form.get_user())
-        return HttpResponseRedirect(self.get_success_url())
+        return super(LoginView, self).form_valid(form)
+
+    def form_invalid(self, form):
+        """
+        The user has provided invalid credentials (this was checked in AuthenticationForm.is_valid()). So now we
+        set the test cookie again and re-render the form with errors.
+        """
+        self.set_test_cookie()
+        return super(LoginView, self).form_invalid(form)
 
     def get_success_url(self):
         if self.success_url:
@@ -74,19 +83,6 @@ class LoginView(FormView):
         """
         self.set_test_cookie()
         return super(LoginView, self).get(request, *args, **kwargs)
-
-    def post(self, request, *args, **kwargs):
-        """
-        Same as django.views.generic.edit.ProcessFormView.post(), but adds test cookie stuff
-        """
-        form_class = self.get_form_class()
-        form = self.get_form(form_class)
-        if form.is_valid():
-            self.check_and_delete_test_cookie()
-            return self.form_valid(form)
-        else:
-            self.set_test_cookie()
-            return self.form_invalid(form)
 
 
 class LogoutView(TemplateResponseMixin, View):
