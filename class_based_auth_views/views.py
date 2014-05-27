@@ -1,5 +1,8 @@
 #-*- coding: utf-8 -*-
-import urlparse
+try:
+    import urlparse
+except ImportError:
+    from urllib import parse as urlparse # python3 support
 from class_based_auth_views.utils import default_redirect
 from django.contrib import auth
 from django.contrib.auth import REDIRECT_FIELD_NAME, login
