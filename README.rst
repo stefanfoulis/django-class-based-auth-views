@@ -6,7 +6,7 @@ related packages
 ================
 
 * `django-password-reset <https://github.com/brutasse/django-password-reset>`_ has class based views to reset
-  orgotten passwords by email confirmation.
+  forgotten passwords by email confirmation.
 
 
 A reimplementation of ``django.contrib.auth.views`` as class based views. Hopefully at some point this project or
