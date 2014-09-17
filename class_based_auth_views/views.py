@@ -4,8 +4,7 @@ from class_based_auth_views.utils import default_redirect
 from django.contrib import auth
 from django.contrib.auth import REDIRECT_FIELD_NAME, login
 from django.contrib.auth.forms import AuthenticationForm
-from django.http import HttpResponseRedirect
-from django.shortcuts import redirect
+from django.shortcuts import redirect, resolve_url
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
@@ -62,10 +61,10 @@ class LoginView(FormView):
 
         netloc = urlparse.urlparse(redirect_to)[1]
         if not redirect_to:
-            redirect_to = settings.LOGIN_REDIRECT_URL
+            redirect_to = resolve_url(settings.LOGIN_REDIRECT_URL)
         # Security check -- don't allow redirection to a different host.
         elif netloc and netloc != self.request.get_host():
-            redirect_to = settings.LOGIN_REDIRECT_URL
+            redirect_to = resolve_url(settings.LOGIN_REDIRECT_URL)
         return redirect_to
 
     def set_test_cookie(self):
