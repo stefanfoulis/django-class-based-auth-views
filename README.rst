@@ -29,7 +29,7 @@ Basic usage
 Instead of including ``django.contrib.auth.login`` into your ``urls.py``, just use the one provided by this project.
 ``urls.py``::
 
-    from class_based_auth_views.views import LoginView
+    from class_based_auth_views.views import LoginView, LogoutView
     urlpatterns = patterns('',
         url(r'^login/$', LoginView.as_view(form_class=EmailAsUsernameAuthenticationForm), name="login"),
         url(r'^logout/$', LogoutView.as_view(), name="logout"),
