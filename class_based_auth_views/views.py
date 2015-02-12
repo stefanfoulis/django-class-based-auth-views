@@ -1,11 +1,13 @@
 #-*- coding: utf-8 -*-
-import urlparse
+try:
+    import urlparse
+except ImportError:
+    from urllib import parse as urlparse # python3 support
 from class_based_auth_views.utils import default_redirect
 from django.contrib import auth
 from django.contrib.auth import REDIRECT_FIELD_NAME, login
 from django.contrib.auth.forms import AuthenticationForm
-from django.http import HttpResponseRedirect
-from django.shortcuts import redirect
+from django.shortcuts import redirect, resolve_url
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
@@ -40,10 +42,19 @@ class LoginView(FormView):
     def form_valid(self, form):
         """
         The user has provided valid credentials (this was checked in AuthenticationForm.is_valid()). So now we
-        can log him in.
+        can check the test cookie stuff and log him in.
         """
+        self.check_and_delete_test_cookie()
         login(self.request, form.get_user())
-        return HttpResponseRedirect(self.get_success_url())
+        return super(LoginView, self).form_valid(form)
+
+    def form_invalid(self, form):
+        """
+        The user has provided invalid credentials (this was checked in AuthenticationForm.is_valid()). So now we
+        set the test cookie again and re-render the form with errors.
+        """
+        self.set_test_cookie()
+        return super(LoginView, self).form_invalid(form)
 
     def get_success_url(self):
         if self.success_url:
@@ -53,10 +64,10 @@ class LoginView(FormView):
 
         netloc = urlparse.urlparse(redirect_to)[1]
         if not redirect_to:
-            redirect_to = settings.LOGIN_REDIRECT_URL
+            redirect_to = resolve_url(settings.LOGIN_REDIRECT_URL)
         # Security check -- don't allow redirection to a different host.
         elif netloc and netloc != self.request.get_host():
-            redirect_to = settings.LOGIN_REDIRECT_URL
+            redirect_to = resolve_url(settings.LOGIN_REDIRECT_URL)
         return redirect_to
 
     def set_test_cookie(self):
@@ -74,19 +85,6 @@ class LoginView(FormView):
         """
         self.set_test_cookie()
         return super(LoginView, self).get(request, *args, **kwargs)
-
-    def post(self, request, *args, **kwargs):
-        """
-        Same as django.views.generic.edit.ProcessFormView.post(), but adds test cookie stuff
-        """
-        form_class = self.get_form_class()
-        form = self.get_form(form_class)
-        if form.is_valid():
-            self.check_and_delete_test_cookie()
-            return self.form_valid(form)
-        else:
-            self.set_test_cookie()
-            return self.form_invalid(form)
 
 
 class LogoutView(TemplateResponseMixin, View):

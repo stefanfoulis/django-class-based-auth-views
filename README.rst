@@ -2,14 +2,17 @@
 django-class-based-auth-views
 =============================
 
+related packages
+================
+
+* `django-password-reset <https://github.com/brutasse/django-password-reset>`_ has class based views to reset
+  forgotten passwords by email confirmation.
+
 
 A reimplementation of ``django.contrib.auth.views`` as class based views. Hopefully at some point this project or
 something similar will make it into django proper.
 
 Currently ``LoginView`` and ``LogoutView`` are implemented.
-
-See `django-password-reset <https://github.com/brutasse/django-password-reset>`_ for class based password management
-views.
 
 
 Installation
@@ -26,7 +29,7 @@ Basic usage
 Instead of including ``django.contrib.auth.login`` into your ``urls.py``, just use the one provided by this project.
 ``urls.py``::
 
-    from class_based_auth_views.views import LoginView
+    from class_based_auth_views.views import LoginView, LogoutView
     urlpatterns = patterns('',
         url(r'^login/$', LoginView.as_view(form_class=EmailAsUsernameAuthenticationForm), name="login"),
         url(r'^logout/$', LogoutView.as_view(), name="logout"),
