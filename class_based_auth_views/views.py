@@ -60,7 +60,7 @@ class LoginView(FormView):
         if self.success_url:
             redirect_to = self.success_url
         else:
-            redirect_to = self.request.REQUEST.get(self.redirect_field_name, '')
+            redirect_to = self.request.POST.get(self.redirect_field_name, '')
 
         netloc = urlparse.urlparse(redirect_to)[1]
         if not redirect_to:
