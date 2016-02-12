@@ -12,7 +12,7 @@ def default_redirect(request, fallback_url, **kwargs):
     Evaluates a redirect url by consulting GET, POST and the session.
     """
     redirect_field_name = kwargs.get("redirect_field_name", "next")
-    next = request.REQUEST.get(redirect_field_name)
+    next = request.GET.get(redirect_field_name) or request.POST.get(redirect_field_name)
     if not next:
         # try the session if available
         if hasattr(request, "session"):

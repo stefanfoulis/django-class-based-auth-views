@@ -60,7 +60,7 @@ class LoginView(FormView):
         if self.success_url:
             redirect_to = self.success_url
         else:
-            redirect_to = self.request.REQUEST.get(self.redirect_field_name, '')
+            redirect_to = self.request.GET.get(self.redirect_field_name, '') or self.request.POST.get(self.redirect_field_name, '')
 
         netloc = urlparse.urlparse(redirect_to)[1]
         if not redirect_to:
@@ -107,7 +107,7 @@ class LogoutView(TemplateResponseMixin, View):
         redirect_field_name = self.get_redirect_field_name()
         context.update({
             "redirect_field_name": redirect_field_name,
-            "redirect_field_value": self.request.REQUEST.get(redirect_field_name),
+            "redirect_field_value": self.request.GET.get(redirect_field_name) or self.request.POST.get(redirect_field_name),
             })
         return context
 
