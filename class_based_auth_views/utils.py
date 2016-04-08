@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import functools
 try:
-	import urlparse
+    import urlparse
 except ImportError:
-	from urllib import parse as urlparse # python3 support
+    from urllib import parse as urlparse # python3 support
 from django.core.exceptions import SuspiciousOperation
 
 
@@ -12,7 +12,8 @@ def default_redirect(request, fallback_url, **kwargs):
     Evaluates a redirect url by consulting GET, POST and the session.
     """
     redirect_field_name = kwargs.get("redirect_field_name", "next")
-    next = request.REQUEST.get(redirect_field_name)
+    next = request.POST.get(redirect_field_name,
+                            request.GET.get(redirect_field_name, ''))
     if not next:
         # try the session if available
         if hasattr(request, "session"):
