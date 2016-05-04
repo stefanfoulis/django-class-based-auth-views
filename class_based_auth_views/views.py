@@ -96,6 +96,8 @@ class LogoutView(TemplateResponseMixin, View):
     def get(self, *args, **kwargs):
         if not self.request.user.is_authenticated():
             return redirect(self.get_redirect_url())
+        else:
+            auth.logout(self.request)
         context = self.get_context_data()
         return self.render_to_response(context)
 
